@@ -1,5 +1,6 @@
 import type { Route } from "./+types/settings";
 import { useTheme } from "~/contexts/ThemeContext";
+import { useState, useEffect } from "react";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -8,8 +9,59 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
+interface FlowiseEndpoint {
+  id: string;
+  name: string;
+  url: string;
+  description?: string;
+}
+
 export default function Settings() {
   const { theme, setTheme } = useTheme();
+  const [endpoints, setEndpoints] = useState<FlowiseEndpoint[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newEndpoint, setNewEndpoint] = useState({
+    name: '',
+    url: '',
+    description: ''
+  });
+
+  // Cargar endpoints guardados del localStorage
+  useEffect(() => {
+    const savedEndpoints = localStorage.getItem('flowise-endpoints');
+    if (savedEndpoints) {
+      setEndpoints(JSON.parse(savedEndpoints));
+    }
+  }, []);
+
+  // Guardar endpoints en localStorage cuando cambien
+  useEffect(() => {
+    localStorage.setItem('flowise-endpoints', JSON.stringify(endpoints));
+  }, [endpoints]);
+
+  const handleAddEndpoint = () => {
+    if (!newEndpoint.name.trim() || !newEndpoint.url.trim()) {
+      alert('Por favor completa el nombre y URL del endpoint');
+      return;
+    }
+
+    const endpoint: FlowiseEndpoint = {
+      id: Date.now().toString(),
+      name: newEndpoint.name.trim(),
+      url: newEndpoint.url.trim(),
+      description: newEndpoint.description.trim() || undefined
+    };
+
+    setEndpoints([...endpoints, endpoint]);
+    setNewEndpoint({ name: '', url: '', description: '' });
+    setShowAddForm(false);
+  };
+
+  const handleDeleteEndpoint = (id: string) => {
+    if (confirm('¿Estás seguro de que quieres eliminar este endpoint?')) {
+      setEndpoints(endpoints.filter(ep => ep.id !== id));
+    }
+  };
 
   return (
     <div className="min-h-screen pb-20" style={{ backgroundColor: 'var(--color-background)' }}>
@@ -110,6 +162,155 @@ export default function Settings() {
             <div className="px-4 py-3 flex items-center justify-between">
               <span style={{ color: 'var(--color-text-primary)' }}>Tamaño de fuente</span>
               <span style={{ color: 'var(--color-text-secondary)' }}>Medio</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Flowise Endpoints */}
+        <div className="rounded-lg shadow-sm border" style={{ 
+          backgroundColor: 'var(--color-surface)', 
+          borderColor: 'var(--color-border)' 
+        }}>
+          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)' }}>
+            <h2 className="text-lg font-medium" style={{ color: 'var(--color-text-primary)' }}>Endpoints de Flowise</h2>
+          </div>
+          <div className="divide-y" style={{ borderColor: 'var(--color-border-light)' }}>
+            {endpoints.map((endpoint) => (
+              <div key={endpoint.id} className="px-4 py-3 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {endpoint.name}
+                  </div>
+                  <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                    {endpoint.url}
+                  </div>
+                  {endpoint.description && (
+                    <div className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                      {endpoint.description}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDeleteEndpoint(endpoint.id)}
+                  className="ml-3 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                  style={{ color: 'var(--color-text-tertiary)' }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+            
+            {endpoints.length === 0 && (
+              <div className="px-4 py-8 text-center">
+                <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-text-tertiary)' }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <p style={{ color: 'var(--color-text-secondary)' }}>
+                  No hay endpoints configurados
+                </p>
+                <p className="text-sm mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Agrega endpoints para probarlos en la página de Flowise
+                </p>
+              </div>
+            )}
+
+            <div className="px-4 py-3">
+              {!showAddForm ? (
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="w-full py-2 px-4 rounded-lg border-2 border-dashed transition-colors"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-text-secondary)'
+                  }}
+                >
+                  <svg className="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Agregar Endpoint
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                      Nombre
+                    </label>
+                    <input
+                      type="text"
+                      value={newEndpoint.name}
+                      onChange={(e) => setNewEndpoint({...newEndpoint, name: e.target.value})}
+                      placeholder="Mi Endpoint de Flowise"
+                      className="w-full p-2 rounded-lg border"
+                      style={{
+                        backgroundColor: 'var(--color-surface-secondary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                      URL
+                    </label>
+                    <input
+                      type="url"
+                      value={newEndpoint.url}
+                      onChange={(e) => setNewEndpoint({...newEndpoint, url: e.target.value})}
+                      placeholder="https://mi-flowise.com/api/v1/prediction/..."
+                      className="w-full p-2 rounded-lg border"
+                      style={{
+                        backgroundColor: 'var(--color-surface-secondary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                      Descripción (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newEndpoint.description}
+                      onChange={(e) => setNewEndpoint({...newEndpoint, description: e.target.value})}
+                      placeholder="Descripción del endpoint"
+                      className="w-full p-2 rounded-lg border"
+                      style={{
+                        backgroundColor: 'var(--color-surface-secondary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)'
+                      }}
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleAddEndpoint}
+                      className="flex-1 py-2 px-4 rounded-lg font-medium"
+                      style={{
+                        backgroundColor: 'var(--color-accent)',
+                        color: 'white'
+                      }}
+                    >
+                      Agregar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddForm(false);
+                        setNewEndpoint({ name: '', url: '', description: '' });
+                      }}
+                      className="flex-1 py-2 px-4 rounded-lg border"
+                      style={{
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-secondary)'
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
