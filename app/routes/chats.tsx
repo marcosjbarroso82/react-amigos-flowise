@@ -48,6 +48,7 @@ export default function Chats() {
   const [isWhisperEnabled, setIsWhisperEnabled] = useState(false);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [chatSwitchNotification, setChatSwitchNotification] = useState<string | null>(null);
   const [newChat, setNewChat] = useState({
     title: '',
     endpointId: '',
@@ -268,6 +269,17 @@ export default function Chats() {
   const handleSendMessage = async () => {
     if (!selectedChat || !newMessage.trim()) return;
 
+    // Verificar si el mensaje contiene el nombre de otro chat
+    const targetChat = findChatByName(newMessage.trim());
+    
+    // Si se encontró un chat diferente al actual, cambiar a ese chat
+    if (targetChat && targetChat.id !== selectedChat.id) {
+      setSelectedChat(targetChat);
+      setChatSwitchNotification(`Cambiado automáticamente a: ${targetChat.title}`);
+      // Limpiar la notificación después de 3 segundos
+      setTimeout(() => setChatSwitchNotification(null), 3000);
+    }
+
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -275,20 +287,23 @@ export default function Chats() {
       timestamp: Date.now()
     };
 
+    // Determinar el chat final a usar (puede haber cambiado)
+    const finalChat = targetChat && targetChat.id !== selectedChat.id ? targetChat : selectedChat;
+
     // Agregar mensaje del usuario inmediatamente
     const updatedChat = {
-      ...selectedChat,
-      messages: [...selectedChat.messages, userMessage],
+      ...finalChat,
+      messages: [...finalChat.messages, userMessage],
       lastMessageAt: Date.now()
     };
 
-    setChats(chats.map(chat => chat.id === selectedChat.id ? updatedChat : chat));
+    setChats(chats.map(chat => chat.id === finalChat.id ? updatedChat : chat));
     setSelectedChat(updatedChat);
     setNewMessage("");
     setIsLoading(true);
 
     try {
-      const endpoint = endpoints.find(ep => ep.id === selectedChat.endpointId);
+      const endpoint = endpoints.find(ep => ep.id === finalChat.endpointId);
       if (!endpoint) throw new Error('Endpoint no encontrado');
 
       const response = await fetch(endpoint.url, {
@@ -297,18 +312,18 @@ export default function Chats() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(
-          selectedChat.historyMode === 'client' 
+          finalChat.historyMode === 'client' 
             ? {
                 question: newMessage.trim(),
-                chatId: selectedChat.chatId,
-                history: selectedChat.messages.map(msg => ({
+                chatId: finalChat.chatId,
+                history: finalChat.messages.map(msg => ({
                   role: msg.role === 'user' ? 'userMessage' : 'apiMessage',
                   content: msg.content
                 }))
               }
             : {
                 question: newMessage.trim(),
-                chatId: selectedChat.chatId
+                chatId: finalChat.chatId
               }
         ),
       });
@@ -326,14 +341,14 @@ export default function Chats() {
         timestamp: Date.now()
       };
 
-      const finalChat = {
+      const finalChatWithResponse = {
         ...updatedChat,
         messages: [...updatedChat.messages, assistantMessage],
         lastMessageAt: Date.now()
       };
 
-      setChats(chats.map(chat => chat.id === selectedChat.id ? finalChat : chat));
-      setSelectedChat(finalChat);
+      setChats(chats.map(chat => chat.id === finalChat.id ? finalChatWithResponse : chat));
+      setSelectedChat(finalChatWithResponse);
 
     } catch (error) {
       const errorMessage: ChatMessage = {
@@ -343,14 +358,14 @@ export default function Chats() {
         timestamp: Date.now()
       };
 
-      const finalChat = {
+      const finalChatWithError = {
         ...updatedChat,
         messages: [...updatedChat.messages, errorMessage],
         lastMessageAt: Date.now()
       };
 
-      setChats(chats.map(chat => chat.id === selectedChat.id ? finalChat : chat));
-      setSelectedChat(finalChat);
+      setChats(chats.map(chat => chat.id === finalChat.id ? finalChatWithError : chat));
+      setSelectedChat(finalChatWithError);
     } finally {
       setIsLoading(false);
     }
@@ -365,6 +380,29 @@ export default function Chats() {
 
   const handleVoiceTranscription = (transcribedText: string) => {
     setNewMessage(transcribedText);
+  };
+
+  // Función para detectar si el mensaje contiene el nombre de otro chat
+  const findChatByName = (message: string): Chat | null => {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) return null;
+    
+    const firstWord = trimmedMessage.split(' ')[0].toLowerCase();
+    
+    // Buscar un chat que coincida exactamente con la primera palabra del mensaje
+    const exactMatch = chats.find(chat => 
+      chat.title.toLowerCase() === firstWord
+    );
+    
+    if (exactMatch) return exactMatch;
+    
+    // Si no hay coincidencia exacta, buscar coincidencias parciales
+    const partialMatch = chats.find(chat => 
+      chat.title.toLowerCase().includes(firstWord) ||
+      firstWord.includes(chat.title.toLowerCase())
+    );
+    
+    return partialMatch || null;
   };
 
   const formatDate = (timestamp: number) => {
@@ -794,6 +832,17 @@ export default function Chats() {
 
           {/* Mensajes - Área con scroll independiente */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+            {/* Notificación de cambio de chat */}
+            {chatSwitchNotification && (
+              <div className="text-center py-2">
+                <div className="inline-block px-4 py-2 rounded-lg text-sm font-medium" style={{
+                  backgroundColor: 'var(--color-accent)',
+                  color: 'white'
+                }}>
+                  {chatSwitchNotification}
+                </div>
+              </div>
+            )}
             {selectedChat.messages.length === 0 ? (
               <div className="text-center py-8">
                 <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-text-tertiary)' }}>
