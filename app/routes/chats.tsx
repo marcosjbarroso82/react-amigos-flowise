@@ -46,6 +46,8 @@ export default function Chats() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isWhisperEnabled, setIsWhisperEnabled] = useState(false);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const [newChat, setNewChat] = useState({
     title: '',
     endpointId: '',
@@ -122,6 +124,39 @@ export default function Chats() {
         setSelectedChat(null);
       }
     }
+  };
+
+  const handleEditChatName = (chatId: string) => {
+    const chat = chats.find(c => c.id === chatId);
+    if (chat) {
+      setEditingChatId(chatId);
+      setEditingTitle(chat.title);
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingChatId || !editingTitle.trim()) return;
+    
+    const updatedChats = chats.map(chat => 
+      chat.id === editingChatId 
+        ? { ...chat, title: editingTitle.trim() }
+        : chat
+    );
+    
+    setChats(updatedChats);
+    
+    // Update selectedChat if it's the one being edited
+    if (selectedChat?.id === editingChatId) {
+      setSelectedChat({ ...selectedChat, title: editingTitle.trim() });
+    }
+    
+    setEditingChatId(null);
+    setEditingTitle('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingChatId(null);
+    setEditingTitle('');
   };
 
   const loadChatHistory = async (chatId: string, endpointUrl: string, apiKey?: string) => {
@@ -552,9 +587,54 @@ export default function Chats() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                        {chat.title}
-                      </h3>
+                      {editingChatId === chat.id ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') handleSaveEdit();
+                              if (e.key === 'Escape') handleCancelEdit();
+                            }}
+                            className="w-full p-2 rounded border font-medium"
+                            style={{
+                              backgroundColor: 'var(--color-surface-secondary)',
+                              borderColor: 'var(--color-border)',
+                              color: 'var(--color-text-primary)'
+                            }}
+                            autoFocus
+                          />
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveEdit();
+                              }}
+                              className="px-3 py-1 text-xs rounded bg-green-500 text-white hover:bg-green-600 transition-colors"
+                            >
+                              Guardar
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelEdit();
+                              }}
+                              className="px-3 py-1 text-xs rounded border hover:bg-gray-50 transition-colors"
+                              style={{
+                                borderColor: 'var(--color-border)',
+                                color: 'var(--color-text-secondary)'
+                              }}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <h3 className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                          {chat.title}
+                        </h3>
+                      )}
                       <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
                         {chat.endpointName}
                       </p>
@@ -574,18 +654,34 @@ export default function Chats() {
                       <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
                         {formatTime(chat.lastMessageAt)}
                       </p>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteChat(chat.id);
-                        }}
-                        className="mt-2 p-1 rounded hover:bg-red-50 transition-colors"
-                        style={{ color: 'var(--color-text-tertiary)' }}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      <div className="flex space-x-1 mt-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditChatName(chat.id);
+                          }}
+                          className="p-1 rounded hover:bg-gray-50 transition-colors"
+                          style={{ color: 'var(--color-text-tertiary)' }}
+                          title="Editar nombre"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteChat(chat.id);
+                          }}
+                          className="p-1 rounded hover:bg-red-50 transition-colors"
+                          style={{ color: 'var(--color-text-tertiary)' }}
+                          title="Eliminar chat"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -612,9 +708,48 @@ export default function Chats() {
                 </svg>
               </button>
               <div className="flex-1 mx-3">
-                <h2 className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {selectedChat.title}
-                </h2>
+                {editingChatId === selectedChat.id ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') handleSaveEdit();
+                        if (e.key === 'Escape') handleCancelEdit();
+                      }}
+                      className="w-full p-2 rounded border font-medium"
+                      style={{
+                        backgroundColor: 'var(--color-surface-secondary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)'
+                      }}
+                      autoFocus
+                    />
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleSaveEdit}
+                        className="px-3 py-1 text-xs rounded bg-green-500 text-white hover:bg-green-600 transition-colors"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-3 py-1 text-xs rounded border hover:bg-gray-50 transition-colors"
+                        style={{
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-secondary)'
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <h2 className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {selectedChat.title}
+                  </h2>
+                )}
                 <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                   {selectedChat.endpointName} • {selectedChat.historyMode === 'client' ? 'Historial local' : 'Historial en servidor'}
                 </p>
@@ -633,6 +768,18 @@ export default function Chats() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </button>
+              {editingChatId !== selectedChat.id && (
+                <button
+                  onClick={() => handleEditChatName(selectedChat.id)}
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                  title="Editar nombre del chat"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              )}
               <button
                 onClick={() => handleDeleteChat(selectedChat.id)}
                 className="p-2 rounded-lg hover:bg-red-50 transition-colors"
