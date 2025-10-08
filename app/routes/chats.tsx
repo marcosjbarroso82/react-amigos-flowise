@@ -8,11 +8,6 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-interface ChatHistoryConfig {
-  historyMode: 'client' | 'server';
-  autoLoadHistory: boolean;
-}
-
 interface FlowiseEndpoint {
   id: string;
   name: string;
@@ -43,10 +38,6 @@ interface Chat {
 export default function Chats() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [endpoints, setEndpoints] = useState<FlowiseEndpoint[]>([]);
-  const [historyConfig, setHistoryConfig] = useState<ChatHistoryConfig>({
-    historyMode: 'client',
-    autoLoadHistory: true
-  });
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [newMessage, setNewMessage] = useState("");
@@ -64,16 +55,12 @@ export default function Chats() {
   useEffect(() => {
     const savedChats = localStorage.getItem('flowise-chats');
     const savedEndpoints = localStorage.getItem('flowise-endpoints');
-    const savedHistoryConfig = localStorage.getItem('flowise-history-config');
     
     if (savedChats) {
       setChats(JSON.parse(savedChats));
     }
     if (savedEndpoints) {
       setEndpoints(JSON.parse(savedEndpoints));
-    }
-    if (savedHistoryConfig) {
-      setHistoryConfig(JSON.parse(savedHistoryConfig));
     }
     
     setIsInitialized(true);
@@ -99,8 +86,8 @@ export default function Chats() {
     const chatId = newChat.chatId.trim() || `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     let initialMessages: ChatMessage[] = [];
 
-    // Si se proporcionó un chatId y está habilitada la carga automática, cargar historial
-    if (newChat.chatId.trim() && historyConfig.autoLoadHistory) {
+    // Si se proporcionó un chatId, intentar cargar historial desde el servidor
+    if (newChat.chatId.trim()) {
       initialMessages = await loadChatHistory(chatId, endpoint.url, endpoint.apiKey);
     }
 

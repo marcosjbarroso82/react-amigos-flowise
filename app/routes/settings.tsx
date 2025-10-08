@@ -17,10 +17,6 @@ interface FlowiseEndpoint {
   apiKey?: string;
 }
 
-interface ChatHistoryConfig {
-  historyMode: 'client' | 'server';
-  autoLoadHistory: boolean;
-}
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
@@ -32,21 +28,13 @@ export default function Settings() {
     description: '',
     apiKey: ''
   });
-  const [historyConfig, setHistoryConfig] = useState<ChatHistoryConfig>({
-    historyMode: 'client',
-    autoLoadHistory: true
-  });
 
   // Cargar datos del localStorage
   useEffect(() => {
     const savedEndpoints = localStorage.getItem('flowise-endpoints');
-    const savedHistoryConfig = localStorage.getItem('flowise-history-config');
     
     if (savedEndpoints) {
       setEndpoints(JSON.parse(savedEndpoints));
-    }
-    if (savedHistoryConfig) {
-      setHistoryConfig(JSON.parse(savedHistoryConfig));
     }
   }, []);
 
@@ -54,10 +42,6 @@ export default function Settings() {
   useEffect(() => {
     localStorage.setItem('flowise-endpoints', JSON.stringify(endpoints));
   }, [endpoints]);
-
-  useEffect(() => {
-    localStorage.setItem('flowise-history-config', JSON.stringify(historyConfig));
-  }, [historyConfig]);
 
   const handleAddEndpoint = () => {
     if (!newEndpoint.name.trim() || !newEndpoint.url.trim()) {
@@ -352,83 +336,6 @@ export default function Settings() {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-
-        {/* Chat History Configuration */}
-        <div className="rounded-lg shadow-sm border" style={{ 
-          backgroundColor: 'var(--color-surface)', 
-          borderColor: 'var(--color-border)' 
-        }}>
-          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)' }}>
-            <h2 className="text-lg font-medium" style={{ color: 'var(--color-text-primary)' }}>Configuración de Chats</h2>
-          </div>
-          <div className="divide-y" style={{ borderColor: 'var(--color-border-light)' }}>
-            <div className="px-4 py-3">
-              <div className="flex items-center justify-between mb-2">
-                <span style={{ color: 'var(--color-text-primary)' }}>Manejo del Historial</span>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="historyMode"
-                      value="client"
-                      checked={historyConfig.historyMode === 'client'}
-                      onChange={(e) => setHistoryConfig({...historyConfig, historyMode: e.target.value as 'client' | 'server'})}
-                      className="mr-2"
-                    />
-                    <span style={{ color: 'var(--color-text-primary)' }}>Cliente (enviar historial completo)</span>
-                  </label>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="historyMode"
-                      value="server"
-                      checked={historyConfig.historyMode === 'server'}
-                      onChange={(e) => setHistoryConfig({...historyConfig, historyMode: e.target.value as 'client' | 'server'})}
-                      className="mr-2"
-                    />
-                    <span style={{ color: 'var(--color-text-primary)' }}>Servidor (solo chatId)</span>
-                  </label>
-                </div>
-                <p className="text-xs mt-2" style={{ color: 'var(--color-text-tertiary)' }}>
-                  {historyConfig.historyMode === 'client' 
-                    ? 'Se envía todo el historial en cada mensaje. Más confiable pero usa más ancho de banda.'
-                    : 'Solo se envía el chatId. Más eficiente pero requiere que el servidor mantenga el historial.'
-                  }
-                </p>
-              </div>
-            </div>
-            
-            <div className="px-4 py-3 flex items-center justify-between">
-              <div>
-                <span style={{ color: 'var(--color-text-primary)' }}>Cargar historial automáticamente</span>
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
-                  Al usar un chatId existente, cargar el historial desde el servidor
-                </p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={historyConfig.autoLoadHistory}
-                  onChange={(e) => setHistoryConfig({...historyConfig, autoLoadHistory: e.target.checked})}
-                />
-                <div 
-                  className="w-11 h-6 peer-focus:outline-none peer-focus:ring-4 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all"
-                  style={{
-                    backgroundColor: historyConfig.autoLoadHistory ? 'var(--color-accent)' : 'var(--color-surface-secondary)',
-                    borderColor: 'var(--color-border)',
-                    '--tw-ring-color': 'var(--color-accent)',
-                    '--tw-ring-opacity': '0.3'
-                  } as React.CSSProperties & { '--tw-ring-color': string; '--tw-ring-opacity': string }}
-                ></div>
-              </label>
             </div>
           </div>
         </div>
