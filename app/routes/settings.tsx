@@ -22,6 +22,7 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const [endpoints, setEndpoints] = useState<FlowiseEndpoint[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [newEndpoint, setNewEndpoint] = useState({
     name: '',
     url: '',
@@ -36,12 +37,16 @@ export default function Settings() {
     if (savedEndpoints) {
       setEndpoints(JSON.parse(savedEndpoints));
     }
+    setIsInitialized(true);
   }, []);
 
   // Guardar datos en localStorage cuando cambien
   useEffect(() => {
-    localStorage.setItem('flowise-endpoints', JSON.stringify(endpoints));
-  }, [endpoints]);
+    // Solo guardar después de que se haya inicializado el componente
+    if (isInitialized) {
+      localStorage.setItem('flowise-endpoints', JSON.stringify(endpoints));
+    }
+  }, [endpoints, isInitialized]);
 
   const handleAddEndpoint = () => {
     if (!newEndpoint.name.trim() || !newEndpoint.url.trim()) {

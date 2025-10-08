@@ -28,6 +28,7 @@ export default function Flowise() {
   const [testData, setTestData] = useState<string>("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Cargar endpoints guardados del localStorage
   useEffect(() => {
@@ -35,7 +36,16 @@ export default function Flowise() {
     if (savedEndpoints) {
       setEndpoints(JSON.parse(savedEndpoints));
     }
+    setIsInitialized(true);
   }, []);
+
+  // Guardar endpoints en localStorage cuando cambien
+  useEffect(() => {
+    // Solo guardar después de que se haya inicializado el componente
+    if (isInitialized) {
+      localStorage.setItem('flowise-endpoints', JSON.stringify(endpoints));
+    }
+  }, [endpoints, isInitialized]);
 
   const handleTestEndpoint = async () => {
     if (!selectedEndpoint || !testData.trim()) {
