@@ -7,4 +7,5 @@ export default [
   route("settings", "routes/settings.tsx"),
   route("flowise", "routes/flowise.tsx"),
   route("chats", "routes/chats.tsx"),
+  route("whisper", "routes/whisper.tsx"),
 ] satisfies RouteConfig;

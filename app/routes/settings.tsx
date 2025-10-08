@@ -171,7 +171,73 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Flowise Endpoints */}
+        {/* OpenAI Configuration */}
+        <div className="rounded-lg shadow-sm border" style={{ 
+          backgroundColor: 'var(--color-surface)', 
+          borderColor: 'var(--color-border)' 
+        }}>
+          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)' }}>
+            <h2 className="text-lg font-medium" style={{ color: 'var(--color-text-primary)' }}>OpenAI API</h2>
+          </div>
+          <div className="divide-y" style={{ borderColor: 'var(--color-border-light)' }}>
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between mb-3">
+                <span style={{ color: 'var(--color-text-primary)' }}>API Key</span>
+                <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  Para Whisper API
+                </span>
+              </div>
+              <input
+                type="password"
+                placeholder="sk-..."
+                className="w-full p-2 rounded-lg border"
+                style={{
+                  backgroundColor: 'var(--color-surface-secondary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)'
+                }}
+                onChange={(e) => {
+                  const apiKey = e.target.value;
+                  if (apiKey) {
+                    localStorage.setItem('openai-api-key', apiKey);
+                  } else {
+                    localStorage.removeItem('openai-api-key');
+                  }
+                }}
+                defaultValue={localStorage.getItem('openai-api-key') || ''}
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                Se guarda localmente en tu navegador
+              </p>
+            </div>
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span style={{ color: 'var(--color-text-primary)' }}>Modelo Whisper</span>
+                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                    whisper-1
+                  </p>
+                </div>
+                <span className="text-sm px-2 py-1 rounded" style={{ 
+                  backgroundColor: 'var(--color-accent)', 
+                  color: 'white' 
+                }}>
+                  Disponible
+                </span>
+              </div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span style={{ color: 'var(--color-text-primary)' }}>Idiomas Soportados</span>
+                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                    Español, Inglés, Francés, Alemán, Italiano, Portugués
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="rounded-lg shadow-sm border" style={{ 
           backgroundColor: 'var(--color-surface)', 
           borderColor: 'var(--color-border)' 
