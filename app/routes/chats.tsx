@@ -8,11 +8,17 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
+interface ChatHistoryConfig {
+  historyMode: 'client' | 'server';
+  autoLoadHistory: boolean;
+}
+
 interface FlowiseEndpoint {
   id: string;
   name: string;
   url: string;
   description?: string;
+  apiKey?: string;
 }
 
 interface ChatMessage {
@@ -31,24 +37,34 @@ interface Chat {
   messages: ChatMessage[];
   createdAt: number;
   lastMessageAt: number;
+  historyMode: 'client' | 'server';
 }
 
 export default function Chats() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [endpoints, setEndpoints] = useState<FlowiseEndpoint[]>([]);
+  const [historyConfig, setHistoryConfig] = useState<ChatHistoryConfig>({
+    historyMode: 'client',
+    autoLoadHistory: true
+  });
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [newChat, setNewChat] = useState({
     title: '',
-    endpointId: ''
+    endpointId: '',
+    chatId: '',
+    historyMode: 'client' as 'client' | 'server'
   });
 
   // Cargar datos del localStorage
   useEffect(() => {
     const savedChats = localStorage.getItem('flowise-chats');
     const savedEndpoints = localStorage.getItem('flowise-endpoints');
+    const savedHistoryConfig = localStorage.getItem('flowise-history-config');
     
     if (savedChats) {
       setChats(JSON.parse(savedChats));
@@ -56,14 +72,22 @@ export default function Chats() {
     if (savedEndpoints) {
       setEndpoints(JSON.parse(savedEndpoints));
     }
+    if (savedHistoryConfig) {
+      setHistoryConfig(JSON.parse(savedHistoryConfig));
+    }
+    
+    setIsInitialized(true);
   }, []);
 
   // Guardar chats en localStorage cuando cambien
   useEffect(() => {
-    localStorage.setItem('flowise-chats', JSON.stringify(chats));
-  }, [chats]);
+    // Solo guardar después de que se haya inicializado el componente
+    if (isInitialized) {
+      localStorage.setItem('flowise-chats', JSON.stringify(chats));
+    }
+  }, [chats, isInitialized]);
 
-  const handleCreateChat = () => {
+  const handleCreateChat = async () => {
     if (!newChat.title.trim() || !newChat.endpointId) {
       alert('Por favor completa el título y selecciona un endpoint');
       return;
@@ -72,19 +96,28 @@ export default function Chats() {
     const endpoint = endpoints.find(ep => ep.id === newChat.endpointId);
     if (!endpoint) return;
 
+    const chatId = newChat.chatId.trim() || `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    let initialMessages: ChatMessage[] = [];
+
+    // Si se proporcionó un chatId y está habilitada la carga automática, cargar historial
+    if (newChat.chatId.trim() && historyConfig.autoLoadHistory) {
+      initialMessages = await loadChatHistory(chatId, endpoint.url, endpoint.apiKey);
+    }
+
     const chat: Chat = {
       id: Date.now().toString(),
       title: newChat.title.trim(),
       endpointId: newChat.endpointId,
       endpointName: endpoint.name,
-      chatId: `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      messages: [],
+      chatId: chatId,
+      messages: initialMessages,
       createdAt: Date.now(),
-      lastMessageAt: Date.now()
+      lastMessageAt: Date.now(),
+      historyMode: newChat.historyMode
     };
 
     setChats([chat, ...chats]);
-    setNewChat({ title: '', endpointId: '' });
+    setNewChat({ title: '', endpointId: '', chatId: '', historyMode: 'client' });
     setShowCreateForm(false);
     setSelectedChat(chat);
   };
@@ -95,6 +128,112 @@ export default function Chats() {
       if (selectedChat?.id === chatId) {
         setSelectedChat(null);
       }
+    }
+  };
+
+  const loadChatHistory = async (chatId: string, endpointUrl: string, apiKey?: string) => {
+    setIsLoadingHistory(true);
+    try {
+      // Usar el endpoint que funciona: /api/v1/chatmessage?chatId=
+      const historyUrl = `${endpointUrl.replace('/api/v1/prediction/', '/api/v1/chatmessage/')}?chatId=${chatId}`;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Agregar API Key si está disponible
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+        headers['X-API-Key'] = apiKey;
+      }
+
+      const response = await fetch(historyUrl, {
+        method: 'GET',
+        headers,
+      });
+      
+      let historyData = null;
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          historyData = await response.json();
+          console.log(`Successfully loaded history from: ${historyUrl}`);
+        } else {
+          console.warn(`Endpoint ${historyUrl} returned non-JSON content (${contentType}).`);
+        }
+      } else if (response.status === 401) {
+        console.warn(`Authentication required for ${historyUrl}. API Key may be needed.`);
+      } else if (response.status === 404) {
+        console.warn(`Endpoint ${historyUrl} not found.`);
+      } else {
+        console.warn(`Failed to load history from ${historyUrl}. Status: ${response.status}`);
+      }
+
+      if (historyData) {
+        // Convertir el historial del servidor al formato local
+        const messages: ChatMessage[] = [];
+        
+        if (Array.isArray(historyData)) {
+          // Si es un array directo de mensajes
+          historyData.forEach((msg: any) => {
+            messages.push({
+              id: msg.id || Date.now().toString(),
+              role: msg.role === 'userMessage' ? 'user' : 'assistant',
+              content: msg.content || msg.message || '',
+              timestamp: msg.timestamp || Date.now()
+            });
+          });
+        } else if (historyData.data && Array.isArray(historyData.data)) {
+          // Si está dentro de un objeto con propiedad data
+          historyData.data.forEach((msg: any) => {
+            messages.push({
+              id: msg.id || Date.now().toString(),
+              role: msg.role === 'userMessage' ? 'user' : 'assistant',
+              content: msg.content || msg.message || '',
+              timestamp: msg.timestamp || Date.now()
+            });
+          });
+        }
+
+        return messages;
+      } else {
+        console.warn('No se pudo cargar el historial desde el servidor.');
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+    return [];
+  };
+
+  const handleRefreshHistory = async () => {
+    if (!selectedChat) return;
+    
+    const endpoint = endpoints.find(ep => ep.id === selectedChat.endpointId);
+    if (!endpoint) return;
+
+    setIsLoadingHistory(true);
+    try {
+      const refreshedMessages = await loadChatHistory(selectedChat.chatId, endpoint.url, endpoint.apiKey);
+      
+      if (refreshedMessages.length > 0) {
+        const updatedChat = {
+          ...selectedChat,
+          messages: refreshedMessages,
+          lastMessageAt: Date.now()
+        };
+        
+        setChats(chats.map(chat => chat.id === selectedChat.id ? updatedChat : chat));
+        setSelectedChat(updatedChat);
+      } else {
+        alert('No se pudo cargar el historial. Verifica que el endpoint soporte historial y que tengas la API Key correcta.');
+      }
+    } catch (error) {
+      console.error('Error refreshing history:', error);
+      alert('Error al cargar el historial');
+    } finally {
+      setIsLoadingHistory(false);
     }
   };
 
@@ -129,14 +268,21 @@ export default function Chats() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          question: newMessage.trim(),
-          chatId: selectedChat.chatId,
-          history: selectedChat.messages.map(msg => ({
-            role: msg.role === 'user' ? 'userMessage' : 'apiMessage',
-            content: msg.content
-          }))
-        }),
+        body: JSON.stringify(
+          selectedChat.historyMode === 'client' 
+            ? {
+                question: newMessage.trim(),
+                chatId: selectedChat.chatId,
+                history: selectedChat.messages.map(msg => ({
+                  role: msg.role === 'user' ? 'userMessage' : 'apiMessage',
+                  content: msg.content
+                }))
+              }
+            : {
+                question: newMessage.trim(),
+                chatId: selectedChat.chatId
+              }
+        ),
       });
 
       const data = await response.json();
@@ -287,21 +433,86 @@ export default function Chats() {
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                      Chat ID (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newChat.chatId}
+                      onChange={(e) => setNewChat({...newChat, chatId: e.target.value})}
+                      placeholder="Dejar vacío para generar automáticamente"
+                      className="w-full p-3 rounded-lg border"
+                      style={{
+                        backgroundColor: 'var(--color-surface-secondary)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-primary)'
+                      }}
+                    />
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                      Si proporcionas un Chat ID existente, se cargará el historial automáticamente.
+                      {!endpoints.find(ep => ep.id === newChat.endpointId)?.apiKey && (
+                        <span className="block mt-1 text-orange-600">
+                          ⚠️ Este endpoint no tiene API Key configurada. Puede que no se pueda cargar el historial.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                      Manejo del Historial
+                    </label>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="chatHistoryMode"
+                            value="client"
+                            checked={newChat.historyMode === 'client'}
+                            onChange={(e) => setNewChat({...newChat, historyMode: e.target.value as 'client' | 'server'})}
+                            className="mr-2"
+                          />
+                          <span style={{ color: 'var(--color-text-primary)' }}>Cliente (guardar localmente)</span>
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="chatHistoryMode"
+                            value="server"
+                            checked={newChat.historyMode === 'server'}
+                            onChange={(e) => setNewChat({...newChat, historyMode: e.target.value as 'client' | 'server'})}
+                            className="mr-2"
+                          />
+                          <span style={{ color: 'var(--color-text-primary)' }}>Servidor (guardar en Flowise)</span>
+                        </label>
+                      </div>
+                      <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                        {newChat.historyMode === 'client' 
+                          ? 'El historial se guardará localmente y se enviará en cada mensaje.'
+                          : 'El historial se guardará en Flowise. Solo se enviará el chatId.'
+                        }
+                      </p>
+                    </div>
+                  </div>
                   <div className="flex space-x-2">
                     <button
                       onClick={handleCreateChat}
-                      className="flex-1 py-3 px-4 rounded-lg font-medium"
+                      disabled={isLoadingHistory}
+                      className="flex-1 py-3 px-4 rounded-lg font-medium disabled:opacity-50"
                       style={{
                         backgroundColor: 'var(--color-accent)',
                         color: 'white'
                       }}
                     >
-                      Crear Chat
+                      {isLoadingHistory ? 'Cargando historial...' : 'Crear Chat'}
                     </button>
                     <button
                       onClick={() => {
                         setShowCreateForm(false);
-                        setNewChat({ title: '', endpointId: '' });
+                        setNewChat({ title: '', endpointId: '', chatId: '', historyMode: 'client' });
                       }}
                       className="flex-1 py-3 px-4 rounded-lg border"
                       style={{
@@ -350,11 +561,14 @@ export default function Chats() {
                       <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
                         {chat.endpointName}
                       </p>
-                      {chat.messages.length > 0 && (
-                        <p className="text-xs mt-2 line-clamp-2" style={{ color: 'var(--color-text-tertiary)' }}>
-                          {chat.messages[chat.messages.length - 1].content}
+                      <div className="mt-1 space-y-1">
+                        <p className="text-xs font-mono" style={{ color: 'var(--color-text-tertiary)' }}>
+                          ID: {chat.chatId}
                         </p>
-                      )}
+                        <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                          Historial: {chat.historyMode === 'client' ? 'Local' : 'Servidor'}
+                        </p>
+                      </div>
                     </div>
                     <div className="ml-3 text-right">
                       <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
@@ -405,9 +619,23 @@ export default function Chats() {
                   {selectedChat.title}
                 </h2>
                 <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                  {selectedChat.endpointName}
+                  {selectedChat.endpointName} • {selectedChat.historyMode === 'client' ? 'Historial local' : 'Historial en servidor'}
+                </p>
+                <p className="text-xs font-mono mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                  ID: {selectedChat.chatId}
                 </p>
               </div>
+              <button
+                onClick={handleRefreshHistory}
+                disabled={isLoadingHistory || selectedChat.historyMode === 'client'}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                style={{ color: 'var(--color-text-secondary)' }}
+                title={selectedChat.historyMode === 'client' ? 'No disponible para historial local' : 'Refrescar historial desde servidor'}
+              >
+                <svg className={`w-5 h-5 ${isLoadingHistory ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
               <button
                 onClick={() => handleDeleteChat(selectedChat.id)}
                 className="p-2 rounded-lg hover:bg-red-50 transition-colors"
