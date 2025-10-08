@@ -227,11 +227,49 @@ export default function Settings() {
               </div>
             </div>
             <div className="px-4 py-3">
+              <div className="flex items-center justify-between mb-3">
+                <span style={{ color: 'var(--color-text-primary)' }}>Idioma por Defecto</span>
+              </div>
+              <select
+                className="w-full p-2 rounded-lg border"
+                style={{
+                  backgroundColor: 'var(--color-surface-secondary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)'
+                }}
+                onChange={(e) => {
+                  const language = e.target.value;
+                  if (language) {
+                    localStorage.setItem('whisper-language', language);
+                  } else {
+                    localStorage.removeItem('whisper-language');
+                  }
+                }}
+                defaultValue={localStorage.getItem('whisper-language') || ''}
+              >
+                <option value="">Auto-detectar</option>
+                <option value="es">Español</option>
+                <option value="en">Inglés</option>
+                <option value="fr">Francés</option>
+                <option value="de">Alemán</option>
+                <option value="it">Italiano</option>
+                <option value="pt">Portugués</option>
+                <option value="ja">Japonés</option>
+                <option value="ko">Coreano</option>
+                <option value="zh">Chino</option>
+                <option value="ru">Ruso</option>
+                <option value="ar">Árabe</option>
+              </select>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                Idioma preferido para transcripción de voz
+              </p>
+            </div>
+            <div className="px-4 py-3">
               <div className="flex items-center justify-between">
                 <div>
                   <span style={{ color: 'var(--color-text-primary)' }}>Idiomas Soportados</span>
                   <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Español, Inglés, Francés, Alemán, Italiano, Portugués
+                    Español, Inglés, Francés, Alemán, Italiano, Portugués, Japonés, Coreano, Chino, Ruso, Árabe
                   </p>
                 </div>
               </div>

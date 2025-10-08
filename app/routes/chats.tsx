@@ -1,5 +1,6 @@
 import type { Route } from "./+types/chats";
 import { useState, useEffect } from "react";
+import { VoiceInput } from "~/components/VoiceInput";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -44,6 +45,7 @@ export default function Chats() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isWhisperEnabled, setIsWhisperEnabled] = useState(false);
   const [newChat, setNewChat] = useState({
     title: '',
     endpointId: '',
@@ -55,6 +57,7 @@ export default function Chats() {
   useEffect(() => {
     const savedChats = localStorage.getItem('flowise-chats');
     const savedEndpoints = localStorage.getItem('flowise-endpoints');
+    const apiKey = localStorage.getItem('openai-api-key');
     
     if (savedChats) {
       setChats(JSON.parse(savedChats));
@@ -62,6 +65,9 @@ export default function Chats() {
     if (savedEndpoints) {
       setEndpoints(JSON.parse(savedEndpoints));
     }
+    
+    // Verificar si Whisper está habilitado (si hay API key)
+    setIsWhisperEnabled(!!apiKey);
     
     setIsInitialized(true);
   }, []);
@@ -320,6 +326,10 @@ export default function Chats() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleVoiceTranscription = (transcribedText: string) => {
+    setNewMessage(transcribedText);
   };
 
   const formatDate = (timestamp: number) => {
@@ -712,6 +722,13 @@ export default function Chats() {
                 }}
                 disabled={isLoading}
               />
+              {isWhisperEnabled && (
+                <VoiceInput
+                  onTranscription={handleVoiceTranscription}
+                  disabled={isLoading}
+                  className="flex-shrink-0"
+                />
+              )}
               <button
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim() || isLoading}
@@ -726,6 +743,13 @@ export default function Chats() {
                 </svg>
               </button>
             </div>
+            {isWhisperEnabled && (
+              <div className="text-center mt-2">
+                <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                  💬 Presiona el micrófono para hablar
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
