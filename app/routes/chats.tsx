@@ -635,8 +635,8 @@ export default function Chats() {
             </div>
           </div>
 
-          {/* Mensajes */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Mensajes - Área con scroll independiente */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
             {selectedChat.messages.length === 0 ? (
               <div className="text-center py-8">
                 <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-text-tertiary)' }}>
@@ -692,12 +692,12 @@ export default function Chats() {
             )}
           </div>
 
-          {/* Input de Mensaje */}
-          <div className="border-t p-4" style={{ 
+          {/* Input de Mensaje - Fijo en la parte inferior */}
+          <div className="fixed bottom-16 left-0 right-0 border-t p-4 z-40" style={{ 
             backgroundColor: 'var(--color-surface)', 
             borderColor: 'var(--color-border)' 
           }}>
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 max-w-md mx-auto">
               <input
                 type="text"
                 value={newMessage}
